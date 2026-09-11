@@ -14,21 +14,30 @@
       {
         "label": "main",
         "title": "LimitBar",
-        "width": 320,
-        "height": 340,
+        "width": 300,
+        "height": 150,
         "resizable": false,
         "decorations": false,
-        "transparent": false,
+        "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
         "focus": true,
-        "shadow": true
+        "shadow": true,
+        "minWidth": 300,
+        "maxWidth": 300,
+        "windowEffects": {
+          "effects": [
+            "popover"
+          ],
+          "radius": 12.0
+        }
       }
     ],
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

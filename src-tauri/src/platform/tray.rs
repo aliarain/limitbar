@@ -57,6 +57,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, views: &[ProviderView]) -> tauri::R
 /// Rebuilds the native menu from the latest views. Cheap: a handful of items.
 pub fn update<R: Runtime>(app: &AppHandle<R>, views: &[ProviderView]) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else { return };
+    #[cfg(target_os = "macos")]
+    if let Err(e) = tray.set_title(tray_title(views)) {
+        log::warn!("tray title update failed: {e}");
+    }
     match build_menu(app, views) {
         Ok(menu) => {
             if let Err(e) = tray.set_menu(Some(menu)) {
@@ -81,6 +85,17 @@ fn build_menu<R: Runtime>(app: &AppHandle<R>, views: &[ProviderView]) -> tauri::
     b = b.item(&PredefinedMenuItem::separator(app)?);
     b = b.item(&MenuItemBuilder::with_id(MENU_QUIT, "Quit LimitBar").build(app)?);
     b.build()
+}
+
+/// Text next to the menu-bar icon: the lowest remaining % across providers
+/// that have a trustworthy number. `None` hides the text entirely.
+pub fn tray_title(views: &[ProviderView]) -> Option<String> {
+    views
+        .iter()
+        .filter(|v| v.enabled)
+        .filter_map(|v| v.snapshot.as_ref().and_then(|s| s.min_remaining_percent()))
+        .fold(None, |acc: Option<f64>, p| Some(acc.map_or(p, |a| a.min(p))))
+        .map(|p| format!("{}%", p.round() as i64))
 }
 
 /// One line per provider for the native menu, e.g. "Command Code   93%".
@@ -157,6 +172,16 @@ mod tests {
             last_attempt_at: None,
             next_due_at: None,
         }
+    }
+
+    #[test]
+    fn tray_title_is_min_across_providers_or_none() {
+        assert_eq!(tray_title(&[view(UsageStatus::Available, Freshness::Fresh, Some(93.3)), view(UsageStatus::Error, Freshness::Stale, Some(40.2))]), Some("40%".into()));
+        assert_eq!(tray_title(&[view(UsageStatus::AuthRequired, Freshness::Never, None)]), None);
+        assert_eq!(tray_title(&[]), None);
+        let mut disabled = view(UsageStatus::Available, Freshness::Fresh, Some(10.0));
+        disabled.enabled = false;
+        assert_eq!(tray_title(&[disabled]), None);
     }
 
     #[test]

@@ -52,18 +52,38 @@ pub fn run() {
 
             let initial = tauri::async_runtime::block_on(manager.views());
             platform::tray::build(app.handle(), &initial)?;
+            log::info!("tray icon registered");
 
             // Hide the popup when it loses focus, like a native menu-bar popover.
+            // (Kept open under the dev flag so it can be inspected.)
+            let pin_open = std::env::var_os("LIMITBAR_SHOW_ON_START").is_some();
             if let Some(w) = app.get_webview_window("main") {
                 let wh = w.clone();
                 w.on_window_event(move |event| {
                     if let WindowEvent::Focused(false) = event {
-                        let _ = wh.hide();
+                        if !pin_open {
+                            let _ = wh.hide();
+                        }
                     }
                 });
             }
 
             spawn_scheduler(Arc::clone(&manager));
+
+            // Development aid: `LIMITBAR_SHOW_ON_START=1` opens the popup immediately
+            // (useful on notched displays where a new menu-bar item can be hidden).
+            if pin_open {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    // Wait for the run loop; showing inside setup races app activation.
+                    tokio::time::sleep(Duration::from_millis(600)).await;
+                    if let Some(w) = handle.get_webview_window("main") {
+                        let _ = w.center();
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
