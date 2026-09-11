@@ -14,24 +14,18 @@
       {
         "label": "main",
         "title": "LimitBar",
-        "width": 300,
-        "height": 150,
+        "width": 168,
+        "height": 72,
         "resizable": false,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
-        "focus": true,
+        "focus": false,
         "shadow": true,
-        "minWidth": 300,
-        "maxWidth": 300,
-        "windowEffects": {
-          "effects": [
-            "popover"
-          ],
-          "radius": 12.0
-        }
+        "acceptFirstMouse": true,
+        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {

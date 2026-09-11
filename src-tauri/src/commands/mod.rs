@@ -31,6 +31,7 @@ pub async fn refresh_provider(
 
 #[tauri::command]
 pub async fn hide_popup(window: tauri::Window) -> Result<(), String> {
+    log::info!("widget hidden (panel button)");
     window.hide().map_err(|e| e.to_string())
 }
 

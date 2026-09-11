@@ -5,7 +5,7 @@ use crate::usage::manager::{Freshness, ProviderView};
 use crate::usage::models::UsageStatus;
 use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, Position, Runtime, WebviewWindow};
+use tauri::{AppHandle, Manager, Runtime};
 
 pub const TRAY_ID: &str = "limitbar-tray";
 const MENU_REFRESH: &str = "refresh";
@@ -31,23 +31,14 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, views: &[ProviderView]) -> tauri::R
                     m.refresh_all().await;
                 });
             }
-            MENU_OPEN => show_popup(app, None),
+            MENU_OPEN => show_widget(app),
             MENU_QUIT => app.exit(0),
-            id if id.starts_with(MENU_PROVIDER_PREFIX) => show_popup(app, None),
+            id if id.starts_with(MENU_PROVIDER_PREFIX) => show_widget(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, rect, .. } = event {
-                let app = tray.app_handle();
-                if let Some(w) = app.get_webview_window("main") {
-                    if w.is_visible().unwrap_or(false) {
-                        let _ = w.hide();
-                        return;
-                    }
-                }
-                let anchor = rect.position.to_logical::<f64>(1.0);
-                let size = rect.size.to_logical::<f64>(1.0);
-                show_popup(app, Some((anchor, size)));
+            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                toggle_widget(tray.app_handle());
             }
         })
         .build(app)?;
@@ -81,7 +72,7 @@ fn build_menu<R: Runtime>(app: &AppHandle<R>, views: &[ProviderView]) -> tauri::
     }
     b = b.item(&PredefinedMenuItem::separator(app)?);
     b = b.item(&MenuItemBuilder::with_id(MENU_REFRESH, "Refresh").build(app)?);
-    b = b.item(&MenuItemBuilder::with_id(MENU_OPEN, "Open LimitBar").build(app)?);
+    b = b.item(&MenuItemBuilder::with_id(MENU_OPEN, "Show Widget").build(app)?);
     b = b.item(&PredefinedMenuItem::separator(app)?);
     b = b.item(&MenuItemBuilder::with_id(MENU_QUIT, "Quit LimitBar").build(app)?);
     b.build()
@@ -113,33 +104,21 @@ pub fn menu_line(v: &ProviderView) -> String {
     format!("{}\t{}", v.provider_name, value)
 }
 
-/// Shows the popup, positioned under the tray icon when an anchor is known.
-fn show_popup<R: Runtime>(app: &AppHandle<R>, anchor: Option<(LogicalPosition<f64>, LogicalSize<f64>)>) {
-    let Some(w) = app.get_webview_window("main") else { return };
-    if let Some((pos, size)) = anchor {
-        position_under_anchor(&w, pos, size);
+fn show_widget<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
     }
-    let _ = w.show();
-    let _ = w.set_focus();
 }
 
-fn position_under_anchor<R: Runtime>(w: &WebviewWindow<R>, pos: LogicalPosition<f64>, size: LogicalSize<f64>) {
-    let scale = w.scale_factor().unwrap_or(1.0);
-    let win = w
-        .outer_size()
-        .map(|s| s.to_logical::<f64>(scale))
-        .unwrap_or(LogicalSize::new(320.0, 340.0));
-    let mut x = pos.x + size.width / 2.0 - win.width / 2.0;
-    let y = pos.y + size.height + 6.0;
-    // Keep inside the monitor that contains the anchor.
-    if let Ok(Some(mon)) = w.current_monitor() {
-        let mpos = mon.position().to_logical::<f64>(scale);
-        let msize = mon.size().to_logical::<f64>(scale);
-        let min_x = mpos.x + 8.0;
-        let max_x = mpos.x + msize.width - win.width - 8.0;
-        x = x.clamp(min_x, max_x.max(min_x));
+fn toggle_widget<R: Runtime>(app: &AppHandle<R>) {
+    let Some(w) = app.get_webview_window("main") else { return };
+    if w.is_visible().unwrap_or(false) {
+        log::info!("widget hidden (tray click)");
+        let _ = w.hide();
+    } else {
+        log::info!("widget shown (tray click)");
+        let _ = w.show();
     }
-    let _ = w.set_position(Position::Logical(LogicalPosition::new(x, y)));
 }
 
 #[cfg(test)]

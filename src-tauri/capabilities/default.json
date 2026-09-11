@@ -1,12 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main popup window: IPC to app commands and events only.",
+  "description": "Widget window: app commands, events, and the window ops needed to drag and auto-size itself.",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "core:window:allow-set-size"
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:window:allow-outer-position",
+    "core:window:allow-current-monitor",
+    "core:window:allow-start-dragging"
   ]
 }
