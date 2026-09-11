@@ -1,5 +1,6 @@
 import { cardState, formatPercent, formatReset, minRemaining, statusCopy } from "../lib/format";
 import type { ProviderView, UsageWindow } from "../types/usage";
+import { ProviderGlyph } from "./ProviderGlyph";
 
 interface Props {
   view: ProviderView;
@@ -21,7 +22,7 @@ export function ProviderCard({ view, now }: Props) {
   const remaining = minRemaining(view);
   const note = statusCopy(view.status, view.freshness, view.last_error);
   const binding = windows.reduce<UsageWindow | null>(
-    (acc, w) => (w.remaining_percent !== null && (acc === null || w.remaining_percent < (acc.remaining_percent ?? 101)) ? w : acc),
+    (acc, w) => (!w.scoped && w.remaining_percent !== null && (acc === null || w.remaining_percent < (acc.remaining_percent ?? 101)) ? w : acc),
     null,
   );
   const subtitle = [snap?.plan_name, snap?.account_identifier ? `@${snap.account_identifier}` : null].filter(Boolean).join(" · ");
@@ -30,6 +31,7 @@ export function ProviderCard({ view, now }: Props) {
     <section className={`row row--${state}`} data-state={state} aria-label={view.provider_name}>
       <div className="row__top">
         <div className="row__title">
+          <span className="row__glyph"><ProviderGlyph id={view.provider_id} /></span>
           <span className="row__name">{view.provider_name}</span>
           {subtitle && <span className="row__sub">{subtitle}</span>}
         </div>
@@ -45,7 +47,7 @@ export function ProviderCard({ view, now }: Props) {
       <div className="row__meta">
         {windows.length > 0 ? (
           windows.map((w) => (
-            <span key={w.id} className={`win${w.exceeded ? " win--exceeded" : ""}${w === binding ? " win--binding" : ""}`}>
+            <span key={w.id} className={`win${w.exceeded ? " win--exceeded" : ""}${w === binding ? " win--binding" : ""}${w.scoped ? " win--scoped" : ""}`}>
               <span className="win__label">{w.label}</span>
               {windowLine(w, now)}
             </span>

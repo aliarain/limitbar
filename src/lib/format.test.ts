@@ -13,6 +13,7 @@ function win(remaining: number | null, resetAt: string | null = null): UsageWind
     reset_at: resetAt,
     reset_description: null,
     exceeded: remaining === 0,
+    scoped: false,
   };
 }
 
@@ -113,6 +114,11 @@ describe("cardState", () => {
 });
 
 describe("minRemaining", () => {
+  it("ignores model-scoped caps", () => {
+    const scoped = { ...win(0), id: "m", scoped: true };
+    expect(minRemaining(view({ windows: [win(39), scoped] }))).toBe(39);
+    expect(minRemaining(view({ windows: [scoped] }))).toBeNull();
+  });
   it("ignores nulls and picks the minimum", () => {
     expect(minRemaining(view({ windows: [win(null), win(40), win(90)] }))).toBe(40);
     expect(minRemaining(view({ windows: [win(null)] }))).toBeNull();

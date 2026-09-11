@@ -24,6 +24,8 @@ export interface UsageWindow {
   reset_at: string | null;
   reset_description: string | null;
   exceeded: boolean;
+  /** Cap on one model/feature; excluded from the headline percentage. */
+  scoped: boolean;
 }
 
 export interface UsageSnapshot {

@@ -14,6 +14,7 @@ function win(id: string, label: string, remaining: number | null, resetInMs: num
     reset_at: resetInMs === null ? null : new Date(NOW + resetInMs).toISOString(),
     reset_description: null,
     exceeded: remaining === 0,
+    scoped: false,
   };
 }
 

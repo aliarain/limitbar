@@ -26,9 +26,11 @@ export function cardState(v: ProviderView): CardState {
   return "normal";
 }
 
-/** Lowest remaining % across the provider's windows — the binding constraint. */
+/** Lowest remaining % across the provider's account-level windows — the headline.
+ *  Model-scoped caps are excluded so one exhausted model does not read as 0%. */
 export function minRemaining(v: ProviderView): number | null {
   const values = (v.snapshot?.windows ?? [])
+    .filter((w) => !w.scoped)
     .map((w) => w.remaining_percent)
     .filter((p): p is number => typeof p === "number" && Number.isFinite(p));
   return values.length ? Math.min(...values) : null;
