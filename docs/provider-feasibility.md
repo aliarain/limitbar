@@ -15,9 +15,9 @@ Only A/B integrations ship in V1.
 | Provider     | Class | Status                                   |
 |--------------|-------|------------------------------------------|
 | Command Code | **A** | Investigated + verified live 2026-09-11  |
-| Claude Code  | —     | Not yet investigated                     |
-| OpenAI Codex | —     | Not yet investigated                     |
-| Gemini CLI   | —     | Not yet investigated                     |
+| Claude Code  | **A** | Investigated + verified live 2026-09-11  |
+| OpenAI Codex | **A** | Investigated + verified live 2026-09-11  |
+| Gemini CLI   | —     | Deferred (not in current scope)          |
 
 ---
 
@@ -225,14 +225,175 @@ both windows, obtainable from an existing local login with zero user setup.
 
 ---
 
-## Claude Code
+## Claude Code — Class A
 
-_Not yet investigated (owner directed Command Code first)._
+Investigated 2026-09-11 against Claude Code 2.1.259 (native binary) and the live
+`https://api.anthropic.com` OAuth API, using the investigator's own Claude Max login.
 
-## OpenAI Codex
+### AVAILABLE DATA
 
-_Not yet investigated._
+`GET https://api.anthropic.com/api/oauth/usage` — the endpoint the official CLI's
+`/usage` command uses (string confirmed present in the shipped binary alongside the
+`anthropic-ratelimit-unified-5h/7d-*` response headers it also consumes). Verified live
+response (abridged, real numbers):
+
+```json
+{
+  "five_hour": { "utilization": 3,  "resets_at": "2026-09-11T14:00:00.319696+00:00", "locked_reason": null },
+  "seven_day": { "utilization": 61, "resets_at": "2026-09-13T03:00:00.319714+00:00", "locked_reason": null },
+  "seven_day_opus": null, "seven_day_sonnet": null,
+  "limits": [
+    { "kind": "session",       "group": "session", "percent": 3,   "severity": "normal",   "resets_at": "…", "scope": null, "is_active": false },
+    { "kind": "weekly_all",    "group": "weekly",  "percent": 61,  "severity": "normal",   "resets_at": "…", "scope": null, "is_active": false },
+    { "kind": "weekly_scoped", "group": "weekly",  "percent": 100, "severity": "critical", "resets_at": "…",
+      "scope": { "model": { "display_name": "Fable" } }, "is_active": true }
+  ],
+  "extra_usage": { "is_enabled": false, "utilization": null }
+}
+```
+
+| LimitBar field        | Source                                         | Authoritative? |
+|-----------------------|------------------------------------------------|----------------|
+| used_percent (5h)     | `five_hour.utilization` (integer %)            | Yes — server   |
+| used_percent (weekly) | `seven_day.utilization`                        | Yes — server   |
+| reset_at              | `*.resets_at` (RFC 3339 with offset)           | Yes — server   |
+| per-model weekly caps | `limits[]` entries with `scope.model`          | Yes — server   |
+| exceeded / locked     | `locked_reason`, `limits[].severity`           | Yes — server   |
+| plan_name             | `GET /api/oauth/profile` → `organization.rate_limit_tier` (e.g. `default_claude_max_20x`); keychain `subscriptionType` (`max`/`pro`) | Yes |
+| account_identifier    | `profile.account.email` (masked in UI)         | Yes            |
+
+`utilization` is an integer percent already; no client-side arithmetic. Fields with
+opaque codenames (`tangelo`, `nimbus_quill`, …) are ignored — unknown fields must never
+be rendered.
+
+### AUTH METHOD
+
+- OAuth bearer token issued by `claude login` (Claude.ai account; works for Pro/Max
+  subscriptions — verified with a Max account). Headers: `Authorization: Bearer <token>`,
+  `anthropic-beta: oauth-2025-04-20`.
+- Storage: **macOS Keychain** generic password, service `Claude Code-credentials`,
+  account = the macOS username; value is JSON
+  `{ "claudeAiOauth": { accessToken, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier } }`.
+  Linux/Windows: `~/.claude/.credentials.json` with the same JSON.
+- The access token is short-lived (hours). **LimitBar never refreshes it**: rotating the
+  refresh token from a second client risks invalidating Claude Code's own session. When
+  `expiresAt` has passed → `AUTH_REQUIRED` with "Open Claude Code to refresh sign-in";
+  the CLI refreshes on its next run and LimitBar picks the new token up on its next poll.
+- Keychain read triggers a one-time macOS consent dialog ("LimitBar wants to access…");
+  "Always Allow" persists for a signed build. Dev builds re-prompt after each rebuild.
+- 401 → `AUTH_REQUIRED`. No token is ever written by LimitBar.
+
+### SOURCE
+
+`OFFICIAL_API` — the vendor's own OAuth usage endpoint, same as the CLI's `/usage`.
+
+### RELIABILITY
+
+- Undocumented for third parties, but the CLI depends on it and several community
+  menu-bar tools have used it for months. Breakage risk: moderate; the response has
+  many nullable/experimental fields, so parsing is tolerant and only `five_hour`,
+  `seven_day`, `limits[]` are used.
+- Latency ~0.6–0.8 s. Poll every 5 min.
+
+### LIMITATIONS
+
+- No documented public API contract; Anthropic's consumer terms also bar reverse
+  engineering — LimitBar reads a shipped string table only, and the endpoint is the one
+  the community has already documented. Same policy as Command Code: personal use now,
+  seek written OK before wide distribution.
+- Token expiry between Claude Code runs shows as "sign-in needed" even though the user
+  is still logged in; the copy must say to open Claude Code, not to log in again.
+- Keychain access from an unsigned dev binary prompts repeatedly.
+
+### IMPLEMENTATION PLAN
+
+1. Provider id `claude`, name "Claude Code". Credential: Keychain (macOS) / file (other).
+2. One `GET /api/oauth/usage` per poll; `GET /api/oauth/profile` cached ~1 h for plan.
+3. Windows: `five_hour` (primary), `seven_day`, then any `limits[]` with
+   `group == "weekly"` and a model scope, labelled by `scope.model.display_name`.
+4. `locked_reason != null` or `severity == "critical"` → `exceeded = true`.
+
+---
+
+## OpenAI Codex — Class A
+
+Investigated 2026-09-11 against codex-cli 0.144.1 (native binary) and the live
+`https://chatgpt.com/backend-api` service, using the investigator's own ChatGPT Pro login.
+
+### AVAILABLE DATA
+
+`GET https://chatgpt.com/backend-api/wham/usage` (alias `codex/usage`; both strings are
+present in the shipped binary and returned identical data). Verified live response
+(abridged):
+
+```json
+{
+  "plan_type": "pro",
+  "rate_limit": {
+    "allowed": true, "limit_reached": false,
+    "primary_window":   { "used_percent": 66, "limit_window_seconds": 604800, "reset_after_seconds": 315566, "reset_at": 1789435681 },
+    "secondary_window": null
+  },
+  "additional_rate_limits": [
+    { "limit_name": "GPT-5.3-Codex-Spark", "rate_limit": { "primary_window": { "used_percent": 0, "limit_window_seconds": 18000, "reset_at": 1789138115 },
+                                                            "secondary_window": { "used_percent": 0, "limit_window_seconds": 604800, "reset_at": 1789724915 } } }
+  ],
+  "credits": { "has_credits": false, "unlimited": false, "balance": "0" },
+  "rate_limit_reached_type": null
+}
+```
+
+| LimitBar field   | Source                                                             | Authoritative? |
+|------------------|--------------------------------------------------------------------|----------------|
+| used_percent     | `rate_limit.{primary,secondary}_window.used_percent`               | Yes — server   |
+| window label     | `limit_window_seconds` (18000 → "5h", 604800 → "Week")              | Yes            |
+| reset_at         | `reset_at` (epoch **seconds**)                                     | Yes — server   |
+| exceeded         | `limit_reached`, `rate_limit_reached_type`                          | Yes            |
+| plan_name        | `plan_type` (`pro`, `plus`, `team`, …)                              | Yes            |
+| account_identifier | `email` (masked in UI)                                            | Yes            |
+| model-specific   | `additional_rate_limits[]` (secondary, shown on expand)             | Yes            |
+
+Which of primary/secondary is the 5-hour window varies by plan (this Pro account
+currently reports only a weekly primary window). LimitBar classifies by
+`limit_window_seconds`, never by position.
+
+### AUTH METHOD
+
+- OAuth bearer token from `codex login` (ChatGPT account). Headers:
+  `Authorization: Bearer <access_token>`, `ChatGPT-Account-Id: <account_id>`.
+- Storage: `~/.codex/auth.json` →
+  `{ auth_mode: "chatgpt", tokens: { id_token, access_token, refresh_token, account_id }, last_refresh }`.
+  `access_token` is a JWT; `exp` claim verified ~10 days out. Codex refreshes it itself.
+  LimitBar never refreshes; expired → `AUTH_REQUIRED` ("Run codex to refresh sign-in").
+- `auth_mode: "apikey"` (API-key users) has no subscription quota → `UNSUPPORTED`
+  with "Codex API-key mode has no usage limits to show".
+- Works for subscription users (verified with Pro). 401 → `AUTH_REQUIRED`.
+
+### SOURCE
+
+`OFFICIAL_API` — the endpoint the CLI's own `/status` limits display uses.
+
+### RELIABILITY
+
+- Undocumented for third parties; used by the vendor CLI and by community tools.
+  Breakage risk: moderate. Latency 0.6–1.7 s.
+
+### LIMITATIONS
+
+- Same third-party-use caveat as the others (OpenAI terms bar reverse engineering; only a
+  string table was inspected, and the endpoint is community-documented).
+- The 5h/weekly split is plan-dependent; UI must cope with one or two windows.
+
+### IMPLEMENTATION PLAN
+
+1. Provider id `codex`, name "Codex". Credential: `~/.codex/auth.json` only.
+2. One `GET wham/usage` per poll. Windows: primary + secondary (when present) sorted
+   5h first; `additional_rate_limits` folded in as extra windows labelled by
+   `limit_name` (weekly windows only, to keep the card small).
+3. `limit_reached` → mark the matching window `exceeded`.
+
+---
 
 ## Gemini CLI
 
-_Not yet investigated._
+_Deferred — not in current scope (owner decision 2026-09-11)._
