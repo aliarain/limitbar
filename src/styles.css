@@ -1,0 +1,87 @@
+/* Sits on a native vibrancy surface (NSVisualEffectView "popover" material),
+   so the page background is transparent and every colour is translucent. */
+:root {
+  color-scheme: light dark;
+  --text: rgba(0, 0, 0, 0.88);
+  --text-2: rgba(0, 0, 0, 0.55);
+  --text-3: rgba(0, 0, 0, 0.38);
+  --hover: rgba(0, 0, 0, 0.05);
+  --track: rgba(0, 0, 0, 0.10);
+  --rule: rgba(0, 0, 0, 0.08);
+  --ok: #34c759;
+  --low: #ff9f0a;
+  --critical: #ff453a;
+  --stale: rgba(0, 0, 0, 0.28);
+  --accent: #0a84ff;
+  font: 12.5px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: rgba(255, 255, 255, 0.92);
+    --text-2: rgba(255, 255, 255, 0.58);
+    --text-3: rgba(255, 255, 255, 0.40);
+    --hover: rgba(255, 255, 255, 0.07);
+    --track: rgba(255, 255, 255, 0.14);
+    --rule: rgba(255, 255, 255, 0.10);
+    --ok: #30d158;
+    --low: #ffd60a;
+    --critical: #ff453a;
+    --stale: rgba(255, 255, 255, 0.30);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; background: transparent; }
+body { color: var(--text); user-select: none; -webkit-user-select: none; cursor: default; overflow: hidden; }
+
+.popup { display: flex; flex-direction: column; padding: 6px 6px 4px; }
+
+.popup__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 6px 6px 10px;
+}
+.popup__title { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.popup__actions { display: flex; gap: 2px; }
+.icon-btn {
+  appearance: none; border: 0; background: transparent; color: var(--text-2);
+  width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; padding: 0;
+}
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn:active { background: var(--track); }
+.icon-btn:disabled { opacity: 0.45; }
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.popup__body { display: flex; flex-direction: column; gap: 2px; }
+.popup__empty { margin: 8px; text-align: center; color: var(--text-3); }
+.popup__foot { padding: 6px 10px 4px; font-size: 10.5px; color: var(--text-3); text-align: center; border-top: 1px solid var(--rule); margin-top: 4px; }
+
+.row { padding: 7px 10px 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+.row:hover { background: var(--hover); }
+.row__top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.row__title { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.row__name { font-weight: 600; font-size: 13px; white-space: nowrap; }
+.row__sub { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row__pct { font-weight: 600; font-size: 13px; color: var(--ok); }
+.row__meta { display: flex; flex-wrap: wrap; gap: 1px 12px; font-size: 11px; color: var(--text-2); }
+.row__detail { font-size: 11px; color: var(--text-3); }
+.row__note { font-size: 11px; color: var(--text-2); }
+.row__note--auth_required { color: var(--accent); }
+.row__note--error, .row__note--rate_limited { color: var(--low); }
+
+.win { display: inline-flex; gap: 4px; align-items: baseline; }
+.win__label { font-weight: 600; color: var(--text-3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.win--binding { color: var(--text); }
+.win--exceeded { color: var(--critical); }
+
+.bar { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.bar__fill { height: 100%; border-radius: 2px; background: var(--ok); transition: width 400ms cubic-bezier(.2,.8,.2,1); }
+
+.row--low .bar__fill, .row--low .row__pct { background-color: var(--low); }
+.row--low .row__pct { background: none; color: var(--low); }
+.row--critical .bar__fill { background: var(--critical); }
+.row--critical .row__pct { color: var(--critical); }
+.row--stale .bar__fill { background: var(--stale); }
+.row--stale .row__pct, .row--loading .row__pct, .row--unavailable .row__pct, .row--auth_required .row__pct { color: var(--text-3); }
