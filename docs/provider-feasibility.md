@@ -100,9 +100,9 @@ Additional endpoints available but **not needed for V1**:
   written to `~/.commandcode/auth.json` as
   `{ apiKey, userId, userName, keyName, authenticatedAt }`. Keys are prefixed `user_`.
   (Staging/local variants: `auth.staging.json`, `auth.local.json` — ignore.)
-- The CLI also sends `x-command-code-version: <cli version>` and
-  `x-cli-environment: production`. Not verified as required, but sent by LimitBar for
-  parity so server-side version gating behaves the same as for the CLI.
+- The CLI sends `x-command-code-version` / `x-cli-environment` headers. **Verified not
+  required** — LimitBar sends only `Authorization` and an honest `User-Agent:
+  LimitBar/<version>`; it does not impersonate the CLI.
 - Env override honoured by the CLI: `COMMANDCODE_API_URL` (only when
   `COMMANDCODE_SANDBOX=true`). LimitBar does not need it.
 - Works for **subscription users** (verified with an active `individual-goat`
@@ -170,6 +170,32 @@ Notes:
   are picked up without restart), never copies it elsewhere, never logs it.
 - If the file disappears (user ran `cmd logout`), LimitBar transitions to
   `AUTH_REQUIRED` and keeps the last snapshot marked stale — no data is deleted.
+
+### LEGAL / TERMS OF SERVICE (reviewed 2026-09-11, ToS last updated 2026-07-03)
+
+Not legal advice. Facts relevant to `commandcode.ai/terms`:
+
+- **Favourable:** the user's own key reads the user's own billing status on the user's
+  own machine; identical endpoint/auth/traffic to the vendor's CLI and desktop app; one
+  request set per 5 minutes; nothing bypassed (revoked key → 401).
+- **Gray:** ToS bars automated requests / data extraction from "the Company's website"
+  (LimitBar calls the API, not the website); ToS bars reverse engineering (the endpoint
+  was located by reading the vendor's shipped, unobfuscated JS — interoperability
+  inspection, but the wording is broad); `/alpha/*` is not a published third-party API.
+- **Verified:** endpoints respond normally with an honest `User-Agent: LimitBar/<ver>`
+  and **no** CLI version headers. LimitBar identifies itself truthfully and never
+  impersonates the CLI or desktop app.
+
+Policy for this project:
+
+1. Personal / development use proceeds now.
+2. **Obtain written permission from Command Code before public distribution.**
+   Ask for (a) confirmation that third-party read-only use of
+   `/alpha/billing/credits` with a user's own key is acceptable, and (b) ideally a
+   stable, documented endpoint. Track in `docs/provider-feasibility.md` when answered.
+3. Good-citizen behaviour is non-negotiable: honest UA, ≥5-minute interval, honour
+   `429` / `Retry-After` with backoff, stop polling on repeated `401`, only the three
+   read-only GETs, no scraping of `commandcode.ai` pages.
 
 ### IMPLEMENTATION PLAN
 
