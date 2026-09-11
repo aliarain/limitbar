@@ -29,7 +29,7 @@ Primary providers for V1:
 3. Command Code
 4. Gemini CLI if reliable integration is possible
 
-Cursor/OpenCode and others can come later.
+Cursor and others can come later.
 
 ## CORE EXPERIENCE
 
