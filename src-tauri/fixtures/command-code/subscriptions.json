@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "data": {
+    "id": "sub_redacted",
+    "status": "active",
+    "userId": "user-redacted",
+    "orgId": null,
+    "createdAt": "2026-07-27T02:19:12.000Z",
+    "priceId": "price_redacted",
+    "quantity": 1,
+    "cancelAtPeriodEnd": false,
+    "currentPeriodStart": "2026-09-05T16:19:13.000Z",
+    "currentPeriodEnd": "2026-10-05T16:19:13.000Z",
+    "endedAt": null,
+    "cancelAt": null,
+    "canceledAt": null,
+    "planId": "individual-goat",
+    "pendingPhase": null
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "credits": { "belowThreshold": false, "creditThreshold": 0, "monthlyCredits": 5, "purchasedCredits": 100, "freeCredits": 0 },
+  "windowLimits": { "limited": false, "exceeded": null }
+}
