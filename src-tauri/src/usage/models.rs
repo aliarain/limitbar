@@ -71,6 +71,9 @@ pub struct UsageWindow {
     pub reset_description: Option<String>,
     /// The provider has told us this window is currently exhausted.
     pub exceeded: bool,
+    /// A cap on one model/feature rather than the whole account. Shown in the
+    /// detail view but excluded from the headline percentage.
+    pub scoped: bool,
 }
 
 impl UsageWindow {
@@ -90,6 +93,7 @@ impl UsageWindow {
             reset_at: None,
             reset_description: None,
             exceeded: false,
+            scoped: false,
         }
     }
 }
@@ -113,19 +117,17 @@ pub struct UsageSnapshot {
 }
 
 impl UsageSnapshot {
-    pub fn primary(&self) -> Option<&UsageWindow> {
-        self.windows.first()
-    }
-
     /// Earliest upcoming reset across all windows, if any.
     pub fn next_reset_at(&self) -> Option<DateTime<Utc>> {
         self.windows.iter().filter_map(|w| w.reset_at).min()
     }
 
-    /// Lowest remaining percentage across windows — the binding constraint.
+    /// Lowest remaining percentage across account-level windows — the headline.
+    /// Model-scoped caps are excluded so one exhausted model does not read as 0%.
     pub fn min_remaining_percent(&self) -> Option<f64> {
         self.windows
             .iter()
+            .filter(|w| !w.scoped)
             .filter_map(|w| w.remaining_percent)
             .fold(None, |acc, p| Some(acc.map_or(p, |a: f64| a.min(p))))
     }
@@ -145,6 +147,8 @@ pub enum ProviderError {
     Http { status: u16 },
     #[error("unexpected response: {0}")]
     Parse(String),
+    #[error("{0}")]
+    Unsupported(String),
 }
 
 #[cfg(test)]
@@ -205,7 +209,16 @@ mod tests {
         let s = snap(vec![a, b]);
         assert_eq!(s.next_reset_at(), Some(t2));
         assert_eq!(s.min_remaining_percent(), Some(40.0));
-        assert_eq!(s.primary().unwrap().id, "a");
+    }
+
+    #[test]
+    fn scoped_windows_do_not_drive_the_headline() {
+        let account = UsageWindow::from_used_cap("a", "A", 40.0, 100.0);
+        let mut model = UsageWindow::from_used_cap("m", "M", 100.0, 100.0);
+        model.scoped = true;
+        let s = snap(vec![account, model.clone()]);
+        assert_eq!(s.min_remaining_percent(), Some(60.0));
+        assert_eq!(snap(vec![model]).min_remaining_percent(), None);
     }
 
     #[test]

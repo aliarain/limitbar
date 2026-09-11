@@ -12,7 +12,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub const DEFAULT_INTERVAL_SECS: u64 = 300;
-pub const MIN_INTERVAL_SECS: u64 = 60;
 const BACKOFF_BASE_SECS: i64 = 30;
 const MAX_RATE_LIMIT_WAIT_SECS: i64 = 3600;
 /// Grace after a reset instant before re-fetching, so the provider has flipped.
@@ -91,23 +90,6 @@ impl UsageManager {
 
     pub fn interval(&self) -> ChronoDuration {
         ChronoDuration::seconds(self.interval_secs.load(Ordering::Relaxed) as i64)
-    }
-
-    pub fn set_interval_secs(&self, secs: u64) {
-        self.interval_secs.store(secs.max(MIN_INTERVAL_SECS), Ordering::Relaxed);
-    }
-
-    pub async fn set_enabled(&self, id: ProviderId, enabled: bool) {
-        {
-            let mut states = self.states.write().await;
-            if let Some(s) = states.get_mut(&id) {
-                s.enabled = enabled;
-                if enabled {
-                    s.next_due_at = Some(Utc::now());
-                }
-            }
-        }
-        self.notify().await;
     }
 
     pub async fn views(&self) -> Vec<ProviderView> {
@@ -256,6 +238,7 @@ fn classify_failure(
     match err {
         // A missing login rarely fixes itself within seconds; poll at the normal cadence.
         ProviderError::AuthRequired => (UsageStatus::AuthRequired, interval),
+        ProviderError::Unsupported(_) => (UsageStatus::Unsupported, interval),
         ProviderError::RateLimited { retry_after_secs } => {
             let secs = retry_after_secs
                 .map(|s| s as i64)
@@ -408,7 +391,7 @@ mod tests {
     #[tokio::test]
     async fn stale_after_two_intervals_even_without_failure() {
         let m = manager(vec![Ok(snapshot(10.0, None))]);
-        m.set_interval_secs(60);
+        m.interval_secs.store(60, Ordering::Relaxed);
         m.refresh(ProviderId::CommandCode).await;
         {
             let mut states = m.states.write().await;
@@ -443,7 +426,7 @@ mod tests {
     #[tokio::test]
     async fn disabled_provider_is_never_fetched() {
         let m = manager(vec![Ok(snapshot(1.0, None))]);
-        m.set_enabled(ProviderId::CommandCode, false).await;
+        m.states.write().await.get_mut(&ProviderId::CommandCode).unwrap().enabled = false;
         assert!(m.due(Utc::now()).await.is_empty());
         m.refresh(ProviderId::CommandCode).await;
         assert!(m.views().await[0].snapshot.is_none());
