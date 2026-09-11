@@ -146,6 +146,31 @@ not inferred, not estimated.
   CLI behaviour). Not verified live (investigator has no org) — treat org support as
   **B** until tested.
 
+### HOW A NORMAL USER GETS ACCESS
+
+Verified on this machine: both the CLI (`command-code` npm package) and the desktop app
+(`Command Code.app`, bundle `ai.commandcode.desktop`) read the **same** file,
+`~/.commandcode/auth.json`, via a shared harness. The desktop app also consumes
+`windowLimits` from `/alpha/billing/credits` for its own popover usage meter.
+
+So for LimitBar users the onboarding is:
+
+| User situation                                        | What LimitBar does                                  | User effort |
+|-------------------------------------------------------|-----------------------------------------------------|-------------|
+| Has used Command Code CLI **or** desktop app and logged in | Auto-detects `~/.commandcode/auth.json`, shows usage | **None**    |
+| Has Command Code installed but never logged in        | Card shows "Sign in required" with a button that opens the CLI login (`cmd login`) or the desktop app | One click + browser login |
+| Doesn't have Command Code at all                      | Card shows "Command Code not installed" with link to commandcode.ai; provider can be disabled | n/a |
+| Wants LimitBar on a machine without Command Code (e.g. a second Mac) | Settings → Providers → Command Code → "Paste API key" (created in Studio → Settings → API keys); stored in OS keychain | Paste once |
+
+Notes:
+
+- The CLI honours no env var for the key; `auth.json` is the single source.
+  Key file permissions on this machine: user-readable JSON (the vendor's choice).
+- LimitBar reads the file into memory on each refresh (so `cmd login` / `cmd logout`
+  are picked up without restart), never copies it elsewhere, never logs it.
+- If the file disappears (user ran `cmd logout`), LimitBar transitions to
+  `AUTH_REQUIRED` and keeps the last snapshot marked stale — no data is deleted.
+
 ### IMPLEMENTATION PLAN
 
 1. Provider id `command-code`, display name "Command Code".
